@@ -19,7 +19,7 @@ def fprobability(k):
 
 # You will need to implement this function and change the return value.   
 def mprobability(k):
-    return 0.0
+    return 1 - (0.25 ** k)
 
 
 def fermat(N,k):
@@ -49,5 +49,4 @@ def miller_rabin(N,k):
 				break
 			if mod_result == N-1:
 				break
-	print("returning prime")
 	return 'prime'
