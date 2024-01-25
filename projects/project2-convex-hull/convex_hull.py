@@ -56,6 +56,9 @@ class ConvexHullSolver(QObject):
 	def showText(self,text):
 		self.view.displayStatusText(text)
 
+	def dnc_solver(self, points):
+		return None
+
 
 # This is the method that gets called by the GUI and actually executes
 # the finding of the hull
@@ -70,11 +73,14 @@ class ConvexHullSolver(QObject):
 
 		t3 = time.time()
 		# this is a dummy polygon of the first 3 unsorted points
-		polygon = [QLineF(points[i],points[(i+1)%3]) for i in range(3)]
+		#polygon = [QLineF(points[i],points[(i+1)%3]) for i in range(3)]
 		# TODO: REPLACE THE LINE ABOVE WITH A CALL TO YOUR DIVIDE-AND-CONQUER CONVEX HULL SOLVER
+		polygon = self.dnc_solver(points) 
 		t4 = time.time()
 
 		# when passing lines to the display, pass a list of QLineF objects.  Each QLineF
 		# object can be created with two QPointF objects corresponding to the endpoints
 		self.showHull(polygon,RED)
 		self.showText('Time Elapsed (Convex Hull): {:3.3f} sec'.format(t4-t3))
+
+	
