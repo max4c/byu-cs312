@@ -56,13 +56,17 @@ class ConvexHullSolver(QObject):
     def showText(self,text):
         self.view.displayStatusText(text)
 
+    def remove_inner(upper,lower):
+        return None
+
     def find_tangent(self,points):
         return None
 
-    def combine(self,l_part,r_part):
-        find_tangent(l_part,r_part)
-        find_tangent(l_part,r_part)
-        return None
+    def combine(self,l_hull,r_hull):
+        upper = find_tangent(l_hull,r_hull)
+        lower = find_tangent(l_hull,r_hull)
+        convex_hull = remove_inner(upper,lower)
+        return convex_hull
     
     def split_list(points):
         half = len(points)//2
@@ -70,16 +74,14 @@ class ConvexHullSolver(QObject):
     
     def divide_and_conquer(self, points):
         if len(points) <= 3:
-            return points
+            return [QLineF(points[i], points[(i + 1) % len(points)]) for i in range(len(points))] #smallest subhull
         
-        l_part,r_part = self.split_list(points)
+        l_points,r_points = self.split_list(points)
 
-        l_part = self.divide_and_conquer(l_part)
-        r_part = self.divide_and_conquer(r_part)
+        l_hull = self.divide_and_conquer(l_points)
+        r_hull = self.divide_and_conquer(r_points)
     
-        #break list of points into smaller points
-        convex_hull= [QLineF(points[i],points[(i+1)%3]) for i in range(3)]
-        return convex_hull
+        return combine(l_hull,r_hull)
 
         '''
         - i have a list of points ordered from leftmost to rightmost
