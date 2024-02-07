@@ -11,6 +11,7 @@ else:
 
 
 import time
+import math
 
 # Some global color constants that might be useful
 RED = (255,0,0)
@@ -56,32 +57,50 @@ class ConvexHullSolver(QObject):
     def showText(self,text):
         self.view.displayStatusText(text)
 
-    def remove_inner(upper,lower):
-        return None
 
-    def find_tangent(self,points):
-        return None
 
-    def combine(self,l_hull,r_hull):
-        upper = find_tangent(l_hull,r_hull)
-        lower = find_tangent(l_hull,r_hull)
-        convex_hull = remove_inner(upper,lower)
-        return convex_hull
+    def combine(self,l_points,r_points):
+
+        # initial points and line
+        l_point = max(l_points, key=lambda point: point.x())
+        r_point = r_points[0]
+        temp_line = QLineF(l_point,r_point)
+
+        for i in range(len(r_hull)):
+            deltaY = r_point.y() - l_point.y()
+            deltaX = r_point.x() - l_point.x()
+            result = math.atan2(deltaY, deltaX)  # Returns value in radians
+            degrees = math.degrees(result)  # Convert to degrees
+            
+            if(i != 0):
+                r_point = r_points[i]
+
+
+        return None
     
-    def split_list(points):
+    def split_list(self,points):
         half = len(points)//2
         return points[:half], points[half:]
+
+    def clockwise_angle(self,point,pivot):
+        x, y = point.x() - pivot.x(), point.y() - pivot.y()
+        return (math.atan2(y, x) + 2 * math.pi) % (2*math.pi)
     
-    def divide_and_conquer(self, points):
+    def divide_and_conquer(self,points):
         if len(points) <= 3:
-            return [QLineF(points[i], points[(i + 1) % len(points)]) for i in range(len(points))] #smallest subhull
+            # sort into clockwise list
+            pivot = points[0]
+            points.sort(key=lambda point: self.clockwise_angle(point, pivot))
+            return points
         
         l_points,r_points = self.split_list(points)
 
-        l_hull = self.divide_and_conquer(l_points)
-        r_hull = self.divide_and_conquer(r_points)
+        l_points = self.divide_and_conquer(l_points)
+        r_points = self.divide_and_conquer(r_points)
+
+        #return [QLineF(points[i], points[(i + 1) % len(points)]) for i in range(len(points))] #smallest subhull
     
-        return combine(l_hull,r_hull)
+        return self.combine(l_points,r_points)
 
         '''
         - i have a list of points ordered from leftmost to rightmost
