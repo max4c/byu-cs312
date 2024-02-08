@@ -25,6 +25,7 @@ PAUSE = 0.25
 # This is the class you have to complete.
 #
 class ConvexHullSolver(QObject):
+    rightmost = QPointF(0.0,0.0)
 
 # Class constructor
     def __init__( self):
@@ -57,34 +58,97 @@ class ConvexHullSolver(QObject):
     def showText(self,text):
         self.view.displayStatusText(text)
 
+    def clock_compare(self,init_point,points,compare_point,clockwise):
+        i = points.index(init_point)
+
+        while True:
+            point_1 = points[i]
+            if(clockwise):
+                point_2 = points[(i + 1) % len(points)]
+            else:
+                point_2 = points[(i - 1) % len(points)]
+            
+            deltaY, deltaX = point_1.y() - compare_point.y(), point_1.x() - compare_point.x()
+            slope_1 = deltaY/deltaX   
+
+            deltaY, deltaX = point_2.y() - compare_point.y(), point_2.x() - compare_point.x()
+            slope_2 = deltaY/deltaX 
+
+            if(clockwise):
+                if(slope_1 > slope_2):
+                    new_point = point_1
+                    break
+            else:
+                if(slope_1 < slope_2):
+                    new_point = point_1
+                    break
+            
+            if(clockwise):
+                i = (i + 1) % len(points)
+            else:
+                i = (i - 1) % len(points)
+
+        return new_point
+
+    def add_lines(self,top_point,low_point,points,clockwise):
+        lines = []
+
+        if(clockwise):
+            i = points.index(top_point)
+            for i in range(len(points)):
+                point_1 = points[i]
+                point_2 = points[(i + 1) % len(points)]
+                line = QLineF(point_1,point_2)
+                lines.append(line)
+                if(point_2 == low_point):
+                    break
+        else:
+            i = points.index(top_point)
+            while True:
+                point_1 = points[i]
+                point_2 = points[(i - 1) % len(points)]
+                line = QLineF(point_1,point_2)
+                lines.append(line)
+                if(point_2 == low_point):
+                    break
+                else:
+                    i = (i - 1) % len(points)
+
+        return lines
+
 
 
     def combine(self,l_points,r_points):
 
-        # initial points and line
-        l_point = max(l_points, key=lambda point: point.x())
-        r_point = r_points[0]
-        temp_line = QLineF(l_point,r_point)
+        l_point = max(l_points, key=lambda point: point.x()) #rightmost point in l_hull
+        r_point = r_points[0] #leftmost point in the r_hull
 
-        for i in range(len(r_hull)):
-            deltaY = r_point.y() - l_point.y()
-            deltaX = r_point.x() - l_point.x()
-            result = math.atan2(deltaY, deltaX)  # Returns value in radians
-            degrees = math.degrees(result)  # Convert to degrees
-            
-            if(i != 0):
-                r_point = r_points[i]
+        top_r_point = self.clock_compare(r_point,r_points,l_point,True)
+        top_l_point = self.clock_compare(l_point,l_points,r_point,False)
+        low_r_point = self.clock_compare(r_point,r_points,l_point,False)
+        low_l_point = self.clock_compare(l_point,l_points,r_point,True)
+        
+        top_tan_line = QLineF(top_l_point,top_r_point)
+        low_tan_line = QLineF(low_l_point,low_r_point)
 
+        lines = []
+        lines.append(top_tan_line)
+        lines.append(low_tan_line)
+        lines.extend(self.add_lines(top_r_point,low_r_point,r_points,True))
+        lines.extend(self.add_lines(top_l_point,low_l_point,l_points,False))
 
-        return None
+        return lines
     
     def split_list(self,points):
         half = len(points)//2
         return points[:half], points[half:]
 
     def clockwise_angle(self,point,pivot):
-        x, y = point.x() - pivot.x(), point.y() - pivot.y()
-        return (math.atan2(y, x) + 2 * math.pi) % (2*math.pi)
+        deltaX, deltaY = point.x() - pivot.x(), point.y() - pivot.y()
+        if deltaX == 0:
+            return float('-inf')  # or any other value that you see fit
+        else:
+            return deltaY/deltaX
     
     def divide_and_conquer(self,points):
         if len(points) <= 3:
@@ -97,21 +161,8 @@ class ConvexHullSolver(QObject):
 
         l_points = self.divide_and_conquer(l_points)
         r_points = self.divide_and_conquer(r_points)
-
-        #return [QLineF(points[i], points[(i + 1) % len(points)]) for i in range(len(points))] #smallest subhull
     
         return self.combine(l_points,r_points)
-
-        '''
-        - i have a list of points ordered from leftmost to rightmost
-        - I split that list into subhulls until I have two subhulls of a size <= 3
-        - with those two subhulls, I find the upper and lower tangent to find the convex hull
-        - then I continue the clockwise/counter clockwise movement
-        - Continue the clockwise position, and only keep the points that are between the top and lower tangent points 
-        - and remove everything else.
-        - so for the left sub-hull, start going counter clockwise until you hit upper tangent point 
-        - and then continue counter clockwise until you hit lower tangent point. Remove al other points
-        '''
 
 
 
