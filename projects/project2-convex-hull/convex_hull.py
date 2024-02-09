@@ -58,91 +58,158 @@ class ConvexHullSolver(QObject):
     def showText(self,text):
         self.view.displayStatusText(text)
 
-    def clock_compare(self,init_point,points,compare_point,clockwise):
-        i = points.index(init_point)
+    def top_clock_walk(self,r_point,l_point,r_points,l_points):
+        count = 0
+        compare_point_l = l_point
+        compare_point_r = r_point
+        i = 0
+        j = l_points.index(l_point)
 
-        while True:
-            point_1 = points[i]
-            if(clockwise):
-                point_2 = points[(i + 1) % len(points)]
-            else:
-                point_2 = points[(i - 1) % len(points)]
-            
-            deltaY, deltaX = point_1.y() - compare_point.y(), point_1.x() - compare_point.x()
+        while count != 2:
+            change_in_r = change_in_l = True
+
+            r_point_1 = r_points[i]
+            r_point_2 = r_points[(i + 1) % len(r_points)]
+
+            deltaY, deltaX = r_point_1.y() - compare_point_l.y(), r_point_1.x() - compare_point_l.x()
             slope_1 = deltaY/deltaX   
 
-            deltaY, deltaX = point_2.y() - compare_point.y(), point_2.x() - compare_point.x()
+            deltaY, deltaX = r_point_2.y() - compare_point_l.y(), r_point_2.x() - compare_point_l.x()
             slope_2 = deltaY/deltaX 
 
-            if(clockwise):
-                if(slope_1 > slope_2):
-                    new_point = point_1
-                    break
+            if(slope_1 < slope_2):
+                i = (i + 1) % len(r_points)
+                compare_point_r = r_point_2
+                count = 0
             else:
-                if(slope_1 < slope_2):
-                    new_point = point_1
-                    break
+                change_in_r = False
+                
+            l_point_1 = l_points[(j) % len(l_points)]
+            l_point_2 = l_points[(j - 1) % len(l_points)]
+
+            deltaY, deltaX = l_point_1.y() - compare_point_r.y(), l_point_1.x() - compare_point_r.x()
+            slope_1 = deltaY/deltaX   
+
+            deltaY, deltaX = l_point_2.y() - compare_point_r.y(), l_point_2.x() - compare_point_r.x()
+            slope_2 = deltaY/deltaX 
+
+            if(slope_1 > slope_2):
+                j = (j - 1) % len(l_points)
+                compare_point_l = l_point_2
+                count = 0
+            else:
+                change_in_l = False
             
-            if(clockwise):
+            if(not change_in_r and not change_in_l):
+                count+=1
+
+        top_r_point = compare_point_r
+        top_l_point = compare_point_l
+
+        return top_r_point, top_l_point
+
+    def low_clock_walk(self,r_point,l_point,r_points,l_points): 
+        count = 0
+        compare_point_l = l_point
+        compare_point_r = r_point
+        i = 0
+        j = l_points.index(l_point)
+
+        while count != 2:
+            change_in_r = change_in_l = True
+
+            r_point_1 = r_points[i]
+            r_point_2 = r_points[(i - 1) % len(r_points)]
+
+            deltaY, deltaX = r_point_1.y() - compare_point_l.y(), r_point_1.x() - compare_point_l.x()
+            slope_1 = deltaY/deltaX   
+
+            deltaY, deltaX = r_point_2.y() - compare_point_l.y(), r_point_2.x() - compare_point_l.x()
+            slope_2 = deltaY/deltaX 
+
+            if(slope_1 > slope_2):
+                i = (i - 1) % len(r_points)
+                compare_point_r = r_point_2
+            else:
+                change_in_r = False
+                
+            l_point_1 = l_points[(j) % len(l_points)]
+            l_point_2 = l_points[(j + 1) % len(l_points)]
+
+            deltaY, deltaX = l_point_1.y() - compare_point_r.y(), l_point_1.x() - compare_point_r.x()
+            slope_1 = deltaY/deltaX   
+
+            deltaY, deltaX = l_point_2.y() - compare_point_r.y(), l_point_2.x() - compare_point_r.x()
+            slope_2 = deltaY/deltaX 
+
+            if(slope_1 < slope_2):
+                j = (j + 1) % len(l_points)
+                compare_point_l = l_point_2
+            else:
+                change_in_l = False
+            
+            if(not change_in_r and not change_in_l):
+                count+=1
+
+        low_r_point = compare_point_r
+        low_l_point = compare_point_l
+
+        return low_r_point, low_l_point
+
+    def add_right_side(self,top_point,low_point,points):
+        #top to bottom
+        side_points = []
+
+        i = points.index(top_point)
+        while True:
+            point_1 = points[i]
+            point_2 = points[(i + 1) % len(points)]
+            side_points.append((point_1,point_2))
+            if(point_2 == low_point):
+                break
+            else:
                 i = (i + 1) % len(points)
+ 
+        return side_points
+    
+    def add_left_side(self,top_point,low_point,points):
+        # bottom to top
+        side_points = []
+
+        i = points.index(low_point)
+        while True:
+            point_1 = points[i]
+            point_2 = points[(i - 1) % len(points)]
+            side_points.append((point_1,point_2))
+            if(point_2 == top_point):
+                break
             else:
                 i = (i - 1) % len(points)
-
-        return new_point
-
-    def add_lines(self,top_point,low_point,points,clockwise):
-        lines = []
-
-        if(clockwise):
-            i = points.index(top_point)
-            for i in range(len(points)):
-                point_1 = points[i]
-                point_2 = points[(i + 1) % len(points)]
-                line = QLineF(point_1,point_2)
-                lines.append(line)
-                if(point_2 == low_point):
-                    break
-        else:
-            i = points.index(top_point)
-            while True:
-                point_1 = points[i]
-                point_2 = points[(i - 1) % len(points)]
-                line = QLineF(point_1,point_2)
-                lines.append(line)
-                if(point_2 == low_point):
-                    break
-                else:
-                    i = (i - 1) % len(points)
-
-        return lines
-
-
+ 
+        return side_points
 
     def combine(self,l_points,r_points):
 
         l_point = max(l_points, key=lambda point: point.x()) #rightmost point in l_hull
         r_point = r_points[0] #leftmost point in the r_hull
 
-        top_r_point = self.clock_compare(r_point,r_points,l_point,True)
-        top_l_point = self.clock_compare(l_point,l_points,r_point,False)
-        low_r_point = self.clock_compare(r_point,r_points,l_point,False)
-        low_l_point = self.clock_compare(l_point,l_points,r_point,True)
-        
-        top_tan_line = QLineF(top_l_point,top_r_point)
-        low_tan_line = QLineF(low_l_point,low_r_point)
+        top_r,top_l = self.top_clock_walk(r_point,l_point,r_points,l_points)
+        low_r,low_l = self.low_clock_walk(r_point,l_point,r_points,l_points)
 
-        lines = []
-        lines.append(top_tan_line)
-        lines.append(low_tan_line)
-        lines.extend(self.add_lines(top_r_point,low_r_point,r_points,True))
-        lines.extend(self.add_lines(top_l_point,low_l_point,l_points,False))
 
-        return lines
+        # must be Tl, TR, BR, BL  in clockwise order
+        points = []
+        points.extend([top_l,top_r])
+        points.extend(self.add_right_side(top_r,low_r,r_points))
+        points.append([low_r,low_l])
+        points.extend(self.add_left_side(top_l,low_l,l_points))
+
+        return points
     
     def split_list(self,points):
         half = len(points)//2
         return points[:half], points[half:]
-
+    
     def clockwise_angle(self,point,pivot):
         deltaX, deltaY = point.x() - pivot.x(), point.y() - pivot.y()
         if deltaX == 0:
@@ -165,7 +232,6 @@ class ConvexHullSolver(QObject):
         return self.combine(l_points,r_points)
 
 
-
 # This is the method that gets called by the GUI and actually executes
 # the finding of the hull
     def compute_hull( self, points, pause, view):
@@ -181,6 +247,7 @@ class ConvexHullSolver(QObject):
         t3 = time.time()
 
         polygon = self.divide_and_conquer(points)
+        # polygon.addlines
 
         t4 = time.time()
 
