@@ -33,6 +33,23 @@ class GeneSequencing:
 		self.banded = banded
 		self.MaxCharactersToAlign = align_length
 
+		if seq1 == seq2:
+			if align_length > len(seq1):
+				score = len(seq1) * -3;
+			else:
+				score = align_length * -3;
+			alignment1 = 'abc-easy  DEBUG:({} chars,align_len={}{})'.format(
+				len(seq1), align_length, ',BANDED' if banded else '')
+			alignment2 = 'as-123--  DEBUG:({} chars,align_len={}{})'.format(
+				len(seq2), align_length, ',BANDED' if banded else '')
+			return {'align_cost':score, 'seqi_first100':alignment1, 'seqj_first100':alignment2}
+		
+		#num of columns are len of seq1, num of rows are len of seq2
+		array = []
+		for i in range(len(seq2)):
+			array.append([None]*len(seq1))
+
+		array[0][0] = 0
 ###################################################################################################
 # your code should replace these three statements and populate the three variables: score, alignment1 and alignment2
 		score = random.random()*100;
