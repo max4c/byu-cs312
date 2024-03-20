@@ -12,6 +12,8 @@ else:
 
 import random
 import math
+import numpy as np
+
 
 # Used to compute the bandwidth for banded version
 MAXINDELS = 3
@@ -33,6 +35,9 @@ class GeneSequencing:
 	def align( self, seq1, seq2, banded, align_length):
 		self.banded = banded
 		self.MaxCharactersToAlign = align_length
+
+		seq1 = seq1[:align_length]
+		seq2 = seq2[:align_length]
 		
 		num_array = []
 		ptr_array = []
@@ -43,69 +48,74 @@ class GeneSequencing:
 			num_array.append([None]*col_length)
 			ptr_array.append([None]*col_length)
 
-		for i in range(row_length):
-			for j in range(col_length):
-				if i == 0 and j == 0:
-					num_array[i][j] = 0
-				elif i == 0 and j!=0:
-					num_array[0][j] = num_array[0][j-1] + 5
-					ptr_array[0][j] = (0,j-1)
-					#ptr_array[0][j] = "L"
-				elif i != 0 and j==0:
-					num_array[i][0] = num_array[i-1][0] + 5
-					ptr_array[i][0] = (i-1,0)
-					#ptr_array[i][0] = "U"
-				else:
-					up = num_array[i-1][j] + 5
-					left = num_array[i][j-1] + 5
-					# decide if match or mismatch
-					if seq1[i-1] == seq2[j-1]:
-						diagonal = num_array[i-1][j-1] -3 # match
-					else:
-						diagonal = num_array[i-1][j-1] + 1 #mismatch
-					
-					smollest = math.inf
-					if smollest > diagonal:
-						smollest = diagonal
-						ptr = (i-1,j-1)
-					if smollest >= up:
-						smollest = up
-						ptr =  (i-1,j)
-					if smollest >= left:
-						smollest = left
-						ptr =  (i,j-1)
+		# Filling the first row
+		for j in range(col_length):
+			num_array[0][j] = j * INDEL
+			if j != 0:
+				ptr_array[0][j] = (0, j - 1)
 
-					num_array[i][j] = smollest
-					ptr_array[i][j] = ptr
+		# Filling the first column
+		for i in range(row_length):
+			num_array[i][0] = i * INDEL
+			if i != 0:
+				ptr_array[i][0] = (i - 1, 0)
+
+		for i in range(1,row_length):
+			for j in range(1,col_length):
+				up = num_array[i-1][j] + INDEL
+				left = num_array[i][j-1] + INDEL
+				# decide if match or mismatch
+				if seq1[i-1] == seq2[j-1]:
+					diagonal = num_array[i-1][j-1] + MATCH # match
+				else:
+					diagonal = num_array[i-1][j-1] + SUB#mismatch
+				
+				smollest = math.inf
+				if smollest > diagonal:
+					smollest = diagonal
+					ptr = (i-1,j-1)
+				if smollest >= up:
+					smollest = up
+					ptr =  (i-1,j)
+				if smollest >= left:
+					smollest = left
+					ptr =  (i,j-1)
+
+				num_array[i][j] = smollest
+				ptr_array[i][j] = ptr
 
 		cur_ptr = (row_length-1, col_length-1)
 		next_ptr = ptr_array[-1][-1]
-		alignment1 = ""
-		alignment2 = ""
+		
+		alignment1_list, alignment2_list = [], []
 
-		while next_ptr != None:
-			if cur_ptr[0] != next_ptr[0] and cur_ptr[1] != next_ptr[1]: # diagonal
-				alignment1 = seq1[cur_ptr[0]-1] + alignment1
-				alignment2 = seq2[cur_ptr[1]-1] + alignment2
-			elif cur_ptr[0] != next_ptr[0] and cur_ptr[1] == next_ptr[1]: # up
-				alignment1 = seq1[cur_ptr[0]-1] + alignment1
-				alignment2 = "-" + alignment2
-			else: # left
-				alignment1 = "-" + alignment1
-				alignment2 = seq2[cur_ptr[1]-1] + alignment2
+		while next_ptr is not None:
+			if next_ptr is None:
+				alignment1_list.append(seq1[cur_ptr[0]-1])
+				alignment2_list.append(seq2[cur_ptr[1]-1])
+				break
+			elif cur_ptr[0] != next_ptr[0] and cur_ptr[1] != next_ptr[1]:  # diagonal
+				alignment1_list.append(seq1[cur_ptr[0]-1])
+				alignment2_list.append(seq2[cur_ptr[1]-1])
+			elif cur_ptr[0] != next_ptr[0] and cur_ptr[1] == next_ptr[1]:  # up
+				alignment1_list.append(seq1[cur_ptr[0]-1])
+				alignment2_list.append("-")
+			else:  # left
+				alignment1_list.append("-")
+				alignment2_list.append(seq2[cur_ptr[1]-1])
+
 			# update next and cur
 			cur_ptr = next_ptr
 			next_ptr = ptr_array[next_ptr[0]][next_ptr[1]]
 
+		# reverse and join the list to form the alignment string
+		alignment1 = "".join(alignment1_list[::-1])
+		alignment2 = "".join(alignment2_list[::-1])
 
-		print(num_array)
-###################################################################################################
-# your code should replace these three statements and populate the three variables: score, alignment1 and alignment2
-		score = random.random()*100;
-		alignment1 = 'abc-easy  DEBUG:({} chars,align_len={}{})'.format(
-			len(seq1), align_length, ',BANDED' if banded else '')
-		alignment2 = 'as-123--  DEBUG:({} chars,align_len={}{})'.format(
-			len(seq2), align_length, ',BANDED' if banded else '')
-###################################################################################################
+		
+		score = num_array[-1][-1]
+		alignment1 = alignment1[:100]
+		alignment2 = alignment2[:100]
+
 
 		return {'align_cost':score, 'seqi_first100':alignment1, 'seqj_first100':alignment2}
