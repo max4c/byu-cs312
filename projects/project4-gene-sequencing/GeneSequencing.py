@@ -38,6 +38,9 @@ class GeneSequencing:
 
 		seq1 = seq1[:align_length]
 		seq2 = seq2[:align_length]
+
+		if banded:
+			self.banded_align(seq1,seq1)
 		
 		num_array = []
 		ptr_array = []
@@ -112,10 +115,56 @@ class GeneSequencing:
 		alignment1 = "".join(alignment1_list[::-1])
 		alignment2 = "".join(alignment2_list[::-1])
 
-		
 		score = num_array[-1][-1]
 		alignment1 = alignment1[:100]
 		alignment2 = alignment2[:100]
 
-
 		return {'align_cost':score, 'seqi_first100':alignment1, 'seqj_first100':alignment2}
+
+	def banded_align(self, seq1, seq2):
+		row_length = len(seq1)+1
+		col_length = len(seq2)+1
+
+		banded_array = []
+		banded_ptr_array = []
+
+		for i in range(row_length):
+			banded_array.append([None]*7)
+		
+
+		for i in range(row_length):
+			for j in range(col_length):
+				if abs(i-j) <= 3:
+					if i == 0 and j == 0:
+						banded_array[i][j+3] = 0
+					elif i ==0:
+						banded_array[i][j+3] = banded_array[i][j+2] + INDEL #top row
+					elif j ==0 and i == 1: 
+						banded_array[i][j+2] = banded_array[i-1][j+3] + INDEL
+					elif j ==0 and i == 2: 
+						banded_array[i][j+1] = banded_array[i-1][j+2] + INDEL 
+					elif j ==0 and i ==3:
+						banded_array[i][j] = banded_array[i-1][j+1] + INDEL 
+					else:
+						
+						if j + 3 < 7:
+							j_index = j
+							while banded_array[i-1][j_index] == None:
+								j_index+=1
+							up = banded_array[i-1][j_index+1] + INDEL
+						left = banded_array[i][j_index-1] + INDEL # add check for this part for leftmost parts
+						if i == j:
+							diagonal = banded_array[i-1][j_index] + MATCH # match
+						else:
+							diagonal = banded_array[i-1][j_index] + SUB#mismatch
+						
+						smollest = math.inf
+						if smollest > diagonal:
+							smollest = diagonal
+						if smollest >= up:
+							smollest = up
+						if smollest >= left:
+							smollest = left
+						
+						banded_array[i][j_index] = smollest
+						
