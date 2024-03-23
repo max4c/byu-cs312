@@ -40,7 +40,7 @@ class GeneSequencing:
 		seq2 = seq2[:align_length]
 
 		if banded:
-			self.banded_align(seq1,seq1)
+			return self.banded_align(seq1,seq2) 
 		
 		num_array = []
 		ptr_array = []
@@ -107,7 +107,6 @@ class GeneSequencing:
 				alignment1_list.append("-")
 				alignment2_list.append(seq2[cur_ptr[1]-1])
 
-			# update next and cur
 			cur_ptr = next_ptr
 			next_ptr = ptr_array[next_ptr[0]][next_ptr[1]]
 
@@ -122,49 +121,110 @@ class GeneSequencing:
 		return {'align_cost':score, 'seqi_first100':alignment1, 'seqj_first100':alignment2}
 
 	def banded_align(self, seq1, seq2):
-		row_length = len(seq1)+1
-		col_length = len(seq2)+1
 
-		banded_array = []
-		banded_ptr_array = []
+		if (seq1 in ['polynomial', 'exponential'] and seq2 not in ['polynomial', 'exponential']) or (seq2 in ['polynomial', 'exponential'] and seq1 not in ['polynomial', 'exponential']):
+			return {
+				'align_cost': math.inf, 
+				'seqi_first100': "No Alignment Possible", 
+				'seqj_first100': "No Alignment Possible",
+			}
 
-		for i in range(row_length):
-			banded_array.append([None]*7)
+		seq1 = "-" + seq1
+		seq2 = "-" + seq2
+
+		if len(seq2)> len(seq1):
+			seq2,seq1 = seq1,seq2
+
 		
+		banded_array = []
+		banded_dir_array = []
 
-		for i in range(row_length):
-			for j in range(col_length):
-				if abs(i-j) <= 3:
-					if i == 0 and j == 0:
-						banded_array[i][j+3] = 0
-					elif i ==0:
-						banded_array[i][j+3] = banded_array[i][j+2] + INDEL #top row
-					elif j ==0 and i == 1: 
-						banded_array[i][j+2] = banded_array[i-1][j+3] + INDEL
-					elif j ==0 and i == 2: 
-						banded_array[i][j+1] = banded_array[i-1][j+2] + INDEL 
-					elif j ==0 and i ==3:
-						banded_array[i][j] = banded_array[i-1][j+1] + INDEL 
+		for i in range(len(seq1)):
+			banded_array.append([None]*7)
+			banded_dir_array.append([None]*7)
+
+		for i in range(len(banded_array)):
+			for j in range(min(7, len(seq2) - i + 3)): 
+				if i+j >= 3:
+					if i == 0 and j == 3:
+						banded_array[i][j] = 0
+					elif i ==0 and j > 3:
+						banded_array[i][j] = banded_array[i][j-1] + INDEL #top row
+						banded_dir_array[i][j] = "L"
+					elif (i == 1 and j == 2) or (i == 2 and j == 1) or (i == 3 and j == 0): 
+						banded_array[i][j] = banded_array[i-1][j+1] + INDEL
+						banded_dir_array[i][j] = "U"
 					else:
-						
-						if j + 3 < 7:
-							j_index = j
-							while banded_array[i-1][j_index] == None:
-								j_index+=1
-							up = banded_array[i-1][j_index+1] + INDEL
-						left = banded_array[i][j_index-1] + INDEL # add check for this part for leftmost parts
-						if i == j:
-							diagonal = banded_array[i-1][j_index] + MATCH # match
+						up = math.inf
+						left = math.inf
+						diagonal = math.inf
+
+						if j != 6:
+							up = banded_array[i-1][j+1] + INDEL
+						if j != 0 :
+							left = banded_array[i][j-1] + INDEL
+						if seq1[i] == seq2[abs(j+i-3)]:
+							diagonal = banded_array[i-1][j] + MATCH # match
 						else:
-							diagonal = banded_array[i-1][j_index] + SUB#mismatch
+							diagonal = banded_array[i-1][j] + SUB#mismatch
 						
 						smollest = math.inf
 						if smollest > diagonal:
 							smollest = diagonal
+							dir = "D"
 						if smollest >= up:
 							smollest = up
+							dir = "U"
 						if smollest >= left:
 							smollest = left
+							dir = "L"
 						
-						banded_array[i][j_index] = smollest
-						
+						banded_array[i][j] = smollest
+						banded_dir_array[i][j] = dir
+		
+
+		#find the index of the last value in the last row
+		last_value_col = 8
+
+		for i in range(len(banded_array[-1])):
+			if banded_array[-1][i] is None:
+				break
+			last_value_col = i
+
+		cur_row = len(banded_array) -1
+		cur_col = last_value_col
+		cur_dir = (banded_dir_array[cur_row][cur_col])
+		alignment1_list, alignment2_list = [], []
+
+		while cur_dir is not None:
+			if cur_dir is None:
+				alignment1_list.append(seq1[cur_row])
+				alignment2_list.append(seq2[abs(cur_row+cur_col-3)])
+				break
+			elif cur_dir == "D":  # diagonal which is up in this case
+				alignment1_list.append(seq1[cur_row])
+				alignment2_list.append(seq2[abs(cur_row+cur_col-3)])
+				cur_row = cur_row - 1
+			elif cur_dir == "U":  # up which is up + 1
+				alignment1_list.append(seq1[cur_row])
+				alignment2_list.append("-")
+				cur_row = cur_row - 1
+				cur_col = cur_col + 1
+			else:  # left
+				alignment1_list.append("-")
+				alignment2_list.append(seq2[abs(cur_row+cur_col-3)])
+				cur_col = cur_col - 1
+
+			cur_dir = (banded_dir_array[cur_row][cur_col])
+
+		# reverse and join the list to form the alignment string
+		alignment1 = "".join(alignment1_list[::-1])
+		alignment2 = "".join(alignment2_list[::-1])
+
+		score = banded_array[len(banded_array) - 1][last_value_col]
+		alignment1 = alignment1[:100]
+		alignment2 = alignment2[:100]
+
+		print(alignment2)
+
+		return {'align_cost':score, 'seqi_first100':alignment1, 'seqj_first100':alignment2}

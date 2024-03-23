@@ -183,7 +183,6 @@ class Proj4GUI( QMainWindow ):
 		w,h = self.getTableDims()
 		self.table.setFixedWidth(w)
 		self.table.setFixedHeight(h)
-
 		self.processButton	= QPushButton('Process')
 		self.clearButton	= QPushButton('Clear')
 
