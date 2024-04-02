@@ -5,6 +5,7 @@ import math
 import numpy as np
 import random
 import time
+from typing import List
 
 
 
@@ -170,3 +171,18 @@ class City:
 
 		return int(math.ceil(cost * self.MAP_SCALE))
 
+class PartialPath:
+	lower_bound: float
+	cost: float
+	path: List[City]
+	matrix: List[List[float]] 
+
+	def __init__(self, lower_bound: float, cost: float, index: int, path: List[City], matrix: List[List[float]]):
+		self.lower_bound = lower_bound
+		self.cost = cost
+		self.index = index
+		self.path = path
+		self.matrix = matrix
+
+	def __lt__(self, other: "PartialPath") -> bool:
+		return self.lower_bound < other.lower_bound

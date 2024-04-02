@@ -16,6 +16,7 @@ import numpy as np
 from TSPClasses import *
 import heapq
 import itertools
+import copy
 
 
 class TSPSolver:
@@ -138,9 +139,105 @@ class TSPSolver:
 		max queue size, total number of states created, and number of pruned states.</returns>
 	'''
 
-	def branchAndBound( self, time_allowance=60.0 ):
-		pass
+	def initialMatrix(self, ncities,cities):
+		#initial cost matrix
+		matrix = np.zeros((ncities,ncities))
+		lower_bound = 0
 
+		for i in range(ncities):
+			for j in range(ncities):
+				if i != j:
+					matrix[i][j] = cities[i].costTo(cities[j])
+				else:
+					matrix[i][j] = np.inf
+
+		return matrix
+
+	def reduceMatrix(self, matrix):
+		ncities = len(matrix)
+
+		# min by rows
+		for i in range(ncities):
+			min_val = np.inf
+			indices_to_decrease = []
+			for j in range(ncities):
+				if matrix[i][j] != np.inf:
+					indices_to_decrease.append(j)
+					if matrix[i][j] < min_val:
+						min_val = matrix[i][j]
+			if min_val != 0:
+				lower_bound += min_val
+				for k in range(len(indices_to_decrease)):
+					matrix[i][indices_to_decrease[k]] -= min_val
+
+
+		# min by columns
+		for j in range(ncities):
+			min_val = np.inf
+			indices_to_decrease = []
+			for i in range(ncities):
+				if matrix[i][j] != np.inf:
+					indices_to_decrease.append(i)
+					if matrix[i][j] < min_val:
+						min_val = matrix[i][j]
+			if min_val != 0:
+				lower_bound += min_val
+				for k in range(len(indices_to_decrease)):
+					matrix[indices_to_decrease[k]][j] -= min_val
+		
+		return lower_bound, matrix
+
+	def setRowCol2Infinity(self, matrix, row_index, col_index):
+		for i in range(len(matrix[row_index])):
+			matrix[row_index][i] = np.inf 
+		for i in range(len(matrix)):
+			matrix[i][col_index] = np.inf
+		
+		# check if the infinites removed the last chance to unvisited city in the reduce Matrix function
+		# set row and col to infinity or delete row and col
+		# keep track of what rows and cols set to inifinty or have reduced cost matrix return None if any min_vals are infinity or there are no min_vals
+
+
+		return matrix
+
+
+	def branchAndBound( self, time_allowance=60.0 ):
+		# create initial partial path
+		results = {}
+		cities = self._scenario.getCities()
+		ncities = len(cities)
+		init_matrix = self.initialMatrix(ncities,cities)
+		lower_bound, matrix = self.reduceMatrix(init_matrix)
+		results = self.greedy()
+		bssf = results['soln']
+		start_city = cities[0]
+		path = [start_city]
+		partial_path = PartialPath(lower_bound, 0.0, 0, path, matrix)
+
+		#push initial partial path into heap
+		priority_queue = []
+		heapq.heappush(priority_queue, partial_path)
+
+		start_time = time.time()
+		while priority_queue and time.time()-start_time < time_allowance:
+			parent = heapq.heappop(priority_queue)
+			parent_index = parent.index 
+			if parent.lower_bound < bssf.cost:
+				for child_index, child in enumerate(cities):
+					if child not in parent.path:
+						parent.path[-1].costTo(child)
+						child_matrix = copy.deepcopy(parent.matrix)
+						child_path = copy.copy(parent.path)
+						child_matrix = self.setRowCol2Infinity(child_matrx, parent_index, child_index)
+						if child_matrix is not None:
+							print("reduce the matrix, create new cost, create new partial path object, add to heap")
+						#use parent matrix to compute lowerbound
+
+		
+
+
+
+	
 
 
 	''' <summary>
