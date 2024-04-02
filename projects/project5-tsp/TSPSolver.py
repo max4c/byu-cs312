@@ -153,8 +153,10 @@ class TSPSolver:
 
 		return matrix
 
-	def reduceMatrix(self, matrix):
+	def reduceMatrix(self, matrix, init_bound):
 		ncities = len(matrix)
+		valid_matrix = True
+		lower_bound = 0
 
 		# min by rows
 		for i in range(ncities):
@@ -185,30 +187,45 @@ class TSPSolver:
 				for k in range(len(indices_to_decrease)):
 					matrix[indices_to_decrease[k]][j] -= min_val
 		
-		return lower_bound, matrix
+		# to add lower_bound from parent
+		lower_bound = init_bound + lower_bound
 
-	def setRowCol2Infinity(self, matrix, row_index, col_index):
-		for i in range(len(matrix[row_index])):
-			matrix[row_index][i] = np.inf 
-		for i in range(len(matrix)):
-			matrix[i][col_index] = np.inf
+		if lower_bound == np.inf:
+			valid_matrix = False
 		
-		# check if the infinites removed the last chance to unvisited city in the reduce Matrix function
-		# set row and col to infinity or delete row and col
-		# keep track of what rows and cols set to inifinty or have reduced cost matrix return None if any min_vals are infinity or there are no min_vals
+		return lower_bound, matrix, valid_matrix
 
+	def delRowCol(self, matrix, row_index, col_index):
+		cost_of_new_edge = matrix[row_index][col_index]
+		valid_edge = True
 
-		return matrix
+		if cost_of_new_edge == np.inf:
+			valid_edge = False
+
+		if valid_edge:
+			for i in range(len(matrix[row_index])):
+				matrix[row_index][i] = np.inf 
+			for i in range(len(matrix)):
+				matrix[i][col_index] = np.inf
+		
+		return matrix, cost_of_new_edge, valid_edge
 
 
 	def branchAndBound( self, time_allowance=60.0 ):
 		# create initial partial path
 		results = {}
+		max_queue_size = 0
+		num_states_created = 0
+		num_states_pruned = 0
+		count = 0
+
 		cities = self._scenario.getCities()
 		ncities = len(cities)
 		init_matrix = self.initialMatrix(ncities,cities)
-		lower_bound, matrix = self.reduceMatrix(init_matrix)
+		lower_bound = 0
+		lower_bound, matrix, valid_matrix = self.reduceMatrix(init_matrix, lower_bound)
 		results = self.greedy()
+		count += 1
 		bssf = results['soln']
 		start_city = cities[0]
 		path = [start_city]
@@ -225,19 +242,42 @@ class TSPSolver:
 			if parent.lower_bound < bssf.cost:
 				for child_index, child in enumerate(cities):
 					if child not in parent.path:
-						parent.path[-1].costTo(child)
+						child_cost = parent.path[-1].costTo(child)
+						new_cost = parent.cost + child_cost
 						child_matrix = copy.deepcopy(parent.matrix)
 						child_path = copy.copy(parent.path)
-						child_matrix = self.setRowCol2Infinity(child_matrx, parent_index, child_index)
-						if child_matrix is not None:
-							print("reduce the matrix, create new cost, create new partial path object, add to heap")
-						#use parent matrix to compute lowerbound
+						child_path.append(child)
+						valid_edge = False
+						valid_matrix = False
+						num_states_created += 1
 
-		
+						child_matrix, cost_of_new_edge, valid_edge = self.delRowCol(child_matrix, parent_index, child_index)
+						
+						if valid_edge:
+							child_matrix, new_lower_bound, valid_matrix =self.reduceMatrix(child_matrix,parent.lower_bound + cost_of_new_edge)
 
+						if valid_matrix:
+							new_partial_path = PartialPath(new_lower_bound,new_cost, child_index, child_path, child_matrix)
+							heapq.heappush(priority_queue, new_partial_path)
+							if len(priority_queue) > max_queue_size:
+								max_queue_size = len(priority_queue)
+						else:
+							num_states_pruned += 1
+						
+						if len(child_path) == len(cities):
+							bssf = TSPSolution(child_path)
+							count += 1
 
+		end_time = time.time()
+		results['cost'] = bssf.cost
+		results['time'] = end_time - start_time
+		results['count'] = count # total num of solutions
+		results['soln'] = bssf
+		results['max'] = max_queue_size
+		results['total'] = num_states_created
+		results['pruned'] = num_states_pruned
+		return results
 
-	
 
 
 	''' <summary>
