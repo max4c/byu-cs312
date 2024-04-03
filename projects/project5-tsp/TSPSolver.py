@@ -228,7 +228,6 @@ class TSPSolver:
 		lower_bound = 0
 		lower_bound, matrix, valid_matrix = self.reduceMatrix(init_matrix, lower_bound)
 		results = self.greedy()
-		count += 1
 		bssf = results['soln']
 		start_city = cities[0]
 		path = [start_city]
@@ -275,6 +274,10 @@ class TSPSolver:
 								bssf = new_solution
 								count += 1
 
+		if len(priority_queue) != 0:
+			for state in priority_queue:
+				if state.lower_bound > bssf.cost:
+					num_states_pruned += 1
 
 		end_time = time.time()
 		results['cost'] = bssf.cost

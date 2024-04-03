@@ -186,4 +186,6 @@ class PartialPath:
 		self.deleted_cols = deleted_cols if deleted_cols is not None else []
 
 	def __lt__(self, other: "PartialPath") -> bool:
+		if self.lower_bound == other.lower_bound:
+			return len(self.path) > len(other.path) 
 		return self.lower_bound < other.lower_bound
