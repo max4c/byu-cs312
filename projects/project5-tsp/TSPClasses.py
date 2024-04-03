@@ -177,12 +177,13 @@ class PartialPath:
 	path: List[City]
 	matrix: List[List[float]] 
 
-	def __init__(self, lower_bound: float, cost: float, index: int, path: List[City], matrix: List[List[float]]):
+	def __init__(self, lower_bound: float,index: int, path: List[City], matrix: List[List[float]], deleted_rows: List[int]=None, deleted_cols: List[int]=None):
 		self.lower_bound = lower_bound
-		self.cost = cost
 		self.index = index
 		self.path = path
 		self.matrix = matrix
+		self.deleted_rows = deleted_rows if deleted_rows is not None else []
+		self.deleted_cols = deleted_cols if deleted_cols is not None else []
 
 	def __lt__(self, other: "PartialPath") -> bool:
 		return self.lower_bound < other.lower_bound

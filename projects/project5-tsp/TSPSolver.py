@@ -153,49 +153,52 @@ class TSPSolver:
 
 		return matrix
 
-	def reduceMatrix(self, matrix, init_bound):
+	def reduceMatrix(self, matrix, init_bound, deleted_rows=None, deleted_cols=None):
 		ncities = len(matrix)
 		valid_matrix = True
-		lower_bound = 0
+		lower_bound = init_bound
+		if deleted_rows is None:
+			deleted_rows = []
+		if deleted_cols is None:
+			deleted_cols = []
 
 		# min by rows
 		for i in range(ncities):
-			min_val = np.inf
-			indices_to_decrease = []
-			for j in range(ncities):
-				if matrix[i][j] != np.inf:
-					indices_to_decrease.append(j)
-					if matrix[i][j] < min_val:
-						min_val = matrix[i][j]
-			if min_val != 0:
-				lower_bound += min_val
-				for k in range(len(indices_to_decrease)):
-					matrix[i][indices_to_decrease[k]] -= min_val
-
+			if i not in deleted_rows:
+				min_val = np.inf
+				indices_to_decrease = []
+				for j in range(ncities):
+					if j not in deleted_cols:
+						if matrix[i][j] < min_val:
+							min_val = matrix[i][j]
+						indices_to_decrease.append(j)
+				if min_val != np.inf:
+					lower_bound += min_val
+					for index in indices_to_decrease:
+						matrix[i][index] -= min_val
+				else:
+					valid_matrix = False
 
 		# min by columns
 		for j in range(ncities):
-			min_val = np.inf
-			indices_to_decrease = []
-			for i in range(ncities):
-				if matrix[i][j] != np.inf:
-					indices_to_decrease.append(i)
-					if matrix[i][j] < min_val:
-						min_val = matrix[i][j]
-			if min_val != 0:
-				lower_bound += min_val
-				for k in range(len(indices_to_decrease)):
-					matrix[indices_to_decrease[k]][j] -= min_val
-		
-		# to add lower_bound from parent
-		lower_bound = init_bound + lower_bound
-
-		if lower_bound == np.inf:
-			valid_matrix = False
+			if j not in deleted_cols:
+				min_val = np.inf
+				indices_to_decrease = []
+				for i in range(ncities):
+					if i not in deleted_rows:
+						if matrix[i][j] < min_val:
+							min_val = matrix[i][j]
+						indices_to_decrease.append(i)
+				if min_val != np.inf:
+					lower_bound += min_val
+					for index in indices_to_decrease:
+						matrix[index][j] -= min_val
+				else:
+					valid_matrix = False
 		
 		return lower_bound, matrix, valid_matrix
 
-	def delRowCol(self, matrix, row_index, col_index):
+	def markCityAsVisited(self, matrix, row_index, col_index):
 		cost_of_new_edge = matrix[row_index][col_index]
 		valid_edge = True
 
@@ -229,7 +232,7 @@ class TSPSolver:
 		bssf = results['soln']
 		start_city = cities[0]
 		path = [start_city]
-		partial_path = PartialPath(lower_bound, 0.0, 0, path, matrix)
+		partial_path = PartialPath(lower_bound, 0, path, matrix)
 
 		#push initial partial path into heap
 		priority_queue = []
@@ -242,22 +245,24 @@ class TSPSolver:
 			if parent.lower_bound < bssf.cost:
 				for child_index, child in enumerate(cities):
 					if child not in parent.path:
-						child_cost = parent.path[-1].costTo(child)
-						new_cost = parent.cost + child_cost
 						child_matrix = copy.deepcopy(parent.matrix)
 						child_path = copy.copy(parent.path)
-						child_path.append(child)
+						child_deleted_rows = copy.copy(parent.deleted_rows)
+						child_deleted_cols = copy.copy(parent.deleted_cols)
 						valid_edge = False
 						valid_matrix = False
 						num_states_created += 1
 
-						child_matrix, cost_of_new_edge, valid_edge = self.delRowCol(child_matrix, parent_index, child_index)
+						child_matrix, cost_of_new_edge, valid_edge = self.markCityAsVisited(child_matrix, parent_index, child_index)
+						child_path.append(child)
+						child_deleted_rows.append(parent_index)
+						child_deleted_cols.append(child_index)
 						
 						if valid_edge:
-							child_matrix, new_lower_bound, valid_matrix =self.reduceMatrix(child_matrix,parent.lower_bound + cost_of_new_edge)
+							new_lower_bound, child_matrix, valid_matrix =self.reduceMatrix(child_matrix,parent.lower_bound + cost_of_new_edge,child_deleted_rows, child_deleted_cols)
 
 						if valid_matrix:
-							new_partial_path = PartialPath(new_lower_bound,new_cost, child_index, child_path, child_matrix)
+							new_partial_path = PartialPath(new_lower_bound, child_index, child_path, child_matrix, child_deleted_rows, child_deleted_cols)
 							heapq.heappush(priority_queue, new_partial_path)
 							if len(priority_queue) > max_queue_size:
 								max_queue_size = len(priority_queue)
@@ -265,8 +270,11 @@ class TSPSolver:
 							num_states_pruned += 1
 						
 						if len(child_path) == len(cities):
-							bssf = TSPSolution(child_path)
-							count += 1
+							new_solution = TSPSolution(child_path)
+							if new_solution.cost < bssf.cost:
+								bssf = new_solution
+								count += 1
+
 
 		end_time = time.time()
 		results['cost'] = bssf.cost
@@ -277,7 +285,6 @@ class TSPSolver:
 		results['total'] = num_states_created
 		results['pruned'] = num_states_pruned
 		return results
-
 
 
 	''' <summary>
